@@ -1,5 +1,6 @@
 package fr.gaulupeau.apps.Poche.network.tasks;
 
+import android.annotation.SuppressLint;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.os.AsyncTask;
@@ -25,6 +26,7 @@ public class UploadOfflineURLsTask extends AsyncTask<Void, Integer, Boolean> {
     private ProgressDialog progressDialog;
 
     private int totalUploaded, totalCount;
+    private List<OfflineURL> failedURLs = new ArrayList<>();
 
     public UploadOfflineURLsTask(Context context, ProgressDialog progressDialog) {
         this.context = context;
@@ -54,28 +56,25 @@ public class UploadOfflineURLsTask extends AsyncTask<Void, Integer, Boolean> {
 
         publishProgress(counter, size);
 
-        boolean result = false;
-        try {
-            // add multithreading?
+        // add multithreading?
 
-            for(OfflineURL url: urls) {
-                if(isCancelled()) break;
-                if(!service.addLink(url.getUrl())) {
-                    if(context != null) {
-                        errorMessage = context.getString(R.string.couldntUploadURL_errorMessage);
-                    }
-                    break;
+        for(OfflineURL url: urls) {
+            if(isCancelled()) break;
+
+            boolean success = false;
+            try {
+                if(service.addLink(url.getUrl())) {
+                    success = true;
                 }
-
-                uploaded.add(url);
-
-                publishProgress(++counter, size);
+            } catch(IOException e) {
+                errorMessage = e.getMessage();
+                e.printStackTrace();
             }
 
-            result = true;
-        } catch (IOException e) {
-            errorMessage = e.getMessage();
-            e.printStackTrace();
+            if(success) uploaded.add(url);
+            else failedURLs.add(url);
+
+            publishProgress(++counter, size);
         }
 
         if(!uploaded.isEmpty()) {
@@ -84,10 +83,10 @@ public class UploadOfflineURLsTask extends AsyncTask<Void, Integer, Boolean> {
             }
         }
 
-        totalUploaded = counter;
+        totalUploaded = uploaded.size();
         totalCount = size;
 
-        return result;
+        return totalUploaded == totalCount;
     }
 
     @Override
@@ -115,6 +114,10 @@ public class UploadOfflineURLsTask extends AsyncTask<Void, Integer, Boolean> {
             }
         } else {
             if(context != null) {
+                if(errorMessage == null) {
+                    errorMessage = context.getString(R.string.couldntUploadURL_errorMessage);
+                }
+
                 DialogHelperActivity.showAlertDialog(context,
                         context.getString(R.string.d_uploadURLs_title), errorMessage,
                         context.getString(R.string.ok));
@@ -123,10 +126,49 @@ public class UploadOfflineURLsTask extends AsyncTask<Void, Integer, Boolean> {
                                 context.getString(R.string.uploadURLs_result_text),
                                 totalUploaded, totalCount),
                         Toast.LENGTH_SHORT).show();
+
+                if(copyURLsToClipboard(context, failedURLs)) {
+                    Toast.makeText(context, R.string.uploadURLs_copied_to_clipboard_message,
+                            Toast.LENGTH_SHORT).show();
+                }
             }
         }
 
         if(progressDialog != null) progressDialog.dismiss();
+    }
+
+    private boolean copyURLsToClipboard(Context context, List<OfflineURL> urls) {
+        if(urls.isEmpty()) return false;
+
+        StringBuilder sb = new StringBuilder();
+        for(OfflineURL url: urls) {
+            sb.append(url.getUrl()).append('\n');
+        }
+
+        return copyToClipboard(context, context.getString(R.string.uploadURLs_clipboard_title),
+                sb.toString());
+    }
+
+    // http://stackoverflow.com/a/19253877
+    @SuppressLint("NewApi")
+    @SuppressWarnings("deprecation")
+    private boolean copyToClipboard(Context context, String label, String text) {
+        try {
+            int sdk = android.os.Build.VERSION.SDK_INT;
+            if (sdk < android.os.Build.VERSION_CODES.HONEYCOMB) {
+                android.text.ClipboardManager clipboard = (android.text.ClipboardManager) context
+                        .getSystemService(Context.CLIPBOARD_SERVICE);
+                clipboard.setText(text);
+            } else {
+                android.content.ClipboardManager clipboard = (android.content.ClipboardManager) context
+                        .getSystemService(Context.CLIPBOARD_SERVICE);
+                android.content.ClipData clip = android.content.ClipData.newPlainText(label, text);
+                clipboard.setPrimaryClip(clip);
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
 }

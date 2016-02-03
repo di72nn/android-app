@@ -107,6 +107,8 @@ GAULUPEAU Jonathan — 2013-2015
     <string name="uploadURLs_finished">Uploading finished</string>
     <string name="d_uploadURLs_title">Fail</string>
     <string name="uploadURLs_result_text">Uploaded %1$d out of %2$d URLs</string>
+    <string name="uploadURLs_clipboard_title">Failed URLs</string>
+    <string name="uploadURLs_copied_to_clipboard_message">Failed offline URLs are copied to clipboard</string>
     <string name="wrongUsernameOrPassword_errorMessage">Couldn\'t login: probably wrong username or password</string>
     <string name="unsuccessfulRequest_errorMessage">"Request unsuccessful; response code: %1$d, response message: %2$s"</string>
     <string name="update_allFeeds">Update all feeds</string>
